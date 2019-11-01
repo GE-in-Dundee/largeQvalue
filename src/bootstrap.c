@@ -1,5 +1,5 @@
-#include <gsl/gsl_rng.h>
 #include <gsl/gsl_randist.h>
+#include <gsl/gsl_rng.h>
 
 void bootSample(size_t* bootCount, double* probs, size_t total,
                 size_t countSize, size_t seed)

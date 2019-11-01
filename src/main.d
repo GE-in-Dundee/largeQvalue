@@ -1,4 +1,4 @@
-import parse_arg;
+import parse_arg : Opts;
 import std.conv : to;
 
 import all_p_vals : all_p_values;

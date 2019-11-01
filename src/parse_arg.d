@@ -4,7 +4,7 @@ import std.array : split;
 import core.stdc.stdlib : exit;
 import std.conv : to, ConvException;
 import std.exception : enforce;
-import std.getopt;
+import std.getopt : defaultGetoptPrinter, getopt;
 import std.math : isNaN;
 import std.stdio : stderr, writeln;
 
@@ -65,7 +65,7 @@ class Opts
 			    "seed", "Set seed for generating bootstrap samples [0].\n", &seed,
 			    "fast", "Report nominal P value threshold for each gene corresponding to given FDR threshold when input is a fastQTL results file.\n", &fast,
 			    "getPi0", "Output only the π₀ value.\n", &getPi,
-			    "threshold", "Only report P values less than given threshold", &threshold,
+			    "threshold", "Only report P values less than given threshold\n", &threshold,
 			    "version", "Print version information.\n", &version_,
 );
 // dfmt on

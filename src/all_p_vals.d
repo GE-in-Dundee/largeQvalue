@@ -1,14 +1,14 @@
 import core.stdc.stdlib : exit;
-import std.algorithm : canFind, makeIndex, min, reduce, reverse;
-import std.array : array, join, split;
+import std.algorithm : canFind, makeIndex, min, reverse;
+import std.array : split;
 import std.conv : ConvException, to;
 import std.exception : enforce;
-import std.math : exp, fabs, fmin, isNaN, log, pow;
-import std.range : assumeSorted, chunks, indexed, iota, zip;
+import std.math : fabs, isNaN, pow;
+import std.range : zip;
 import std.stdio : File, stderr, stdin, stdout, tmpfile, write;
 import std.string : chomp;
 
-import parse_arg;
+import parse_arg : InputException, Opts;
 import pi0_calc : binPVals, getBootPi0, getSmootherPi0;
 
 pure nothrow double[] pValtoQ(in double[] pVal, ref size_t[] orderIndex, double pi0, bool robust)

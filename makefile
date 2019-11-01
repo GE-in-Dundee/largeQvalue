@@ -1,53 +1,82 @@
-SOURCES_D = src/main.d src/all_p_vals.d src/parse_arg.d src/pi0_calc.d src/threshold.d
-LIB_GSL = /usr/lib/libblas.a /usr/lib/libgsl.a /usr/lib/libgslcblas.a
+D_SOURCES := ${wildcard src/*.d}
+#Can replace with location of locally installed gsl-2.1 versions if compiling cluster versions
+GSL := ${shell pwd}/gsl
+LDC := ldc2
+GDC := gdc
+DMD := dmd
 
-bin/largeQvalue : $(SOURCES_D) src/bootstrap.o src/libspline.a
-	ldc -ofbin/largeQvalue -release -enable-inlining -O -w -oq -d-version=Have_largeqvalue -Isrc/ src/bootstrap.o $(SOURCES_D) src/libspline.a -L=-lgsl -L=-lgslcblas -L=-lm -L=-lblas
-	rm -f src/bootstrap.o largeQvalue.o
-	strip bin/largeQvalue
+MIN_GSL_VERSION := 1.6
+
+ifneq (${shell (command -v gsl-config)},)
+	GSL_VERSION := ${shell (gsl-config --version; echo ${MIN_GSL_VERSION}) | sort -V | head -1}
+endif
+
+CHECK_LDC := ${shell command -v ${LDC} 2> /dev/null}
+CHECK_GDC := ${shell command -v ${GDC} 2> /dev/null}
+CHECK_DMD := ${shell command -v ${DMD} 2> /dev/null}
+
+
+ifeq (${GSL_VERSION},${MIN_GSL_VERSION})
+	C_SOURCES := src/bootstrap.o
+else
+	GSL_FILES := ${GSL}/lib/libgsl.a ${GSL}/lib/libgslcblas.a
+	C_SOURCES := src/static_bootstrap.o ${GSL_FILES}
+endif
+
+ifneq (${CHECK_LDC},)
+	COMPILER := ${LDC}
+	RELEASE_FLAGS := -Jviews -release -enable-inlining -O -w -oq
+	DEBUG_FLAGS := -Jviews -d-debug -g -unittest -w
+	OUTPUT_FLAG := -of
+ifneq (${GSL_VERSION},${MIN_GSL_VERSION})
+	STATIC_FLAGS := -d-version=STATICLINKED -I${GSL}/include
+else
+	STATIC_FLAGS := -L-lgsl -L-lgslcblas -L-lblas
+endif
+else
+ifneq (${CHECK_GDC},)
+	COMPILER := ${GDC}
+	RELEASE_FLAGS := -Jviews -frelease -finline-functions -O3 -Werror -Wall
+	DEBUG_FLAGS := -Jviews -fdebug -g -funittest -Werror -Wall
+	OUTPUT_FLAG := -o
+ifneq (${GSL_VERSION},${MIN_GSL_VERSION})
+	STATIC_FLAGS := -fversion=STATICLINKED -I${GSL}/include
+else
+	STATIC_FLAGS := -lgsl -lgslcblas -lblas
+endif
+else
+	COMPILER := ${DMD}
+	RELEASE_FLAGS := -Jviews -release -inline -O -noboundscheck
+	DEBUG_FLAGS := -Jviews -debug -g -unittest -w
+	OUTPUT_FLAG := -of
+ifneq (${GSL_VERSION},${MIN_GSL_VERSION})
+	STATIC_FLAGS := -version=STATICLINKED -I${GSL}/include
+else
+	STATIC_FLAGS := -L-lgsl -L-lgslcblas -L-lblas
+endif
+endif
+endif
+
+ifeq (${CHECK_LDC},)
+ifeq (${CHECK_LDC},)
+ifeq (${CHECK_DMD},)
+${error No D compiler found at ${LDC} or ${DMD} or ${GDC}}
+endif
+endif
+endif
+
+CLEAN_OBJECTS := rm -f src/*.o bin/*.o *.o
+
+bin/largeQvalue : ${D_SOURCES} ${C_SOURCES} src/libspline.a
+	${COMPILER} ${RELEASE_FLAGS} ${D_SOURCES} ${C_SOURCES} src/libspline.a ${STATIC_FLAGS} ${OUTPUT_FLAG}bin/largeQvalue
+	${CLEAN_OBJECTS}
 
 src/libspline.a : src/spline_src/* header/*
 	gcc -Iheader/ -c src/spline_src/*.c src/spline_src/*.f
 	ar rcs src/libspline.a bsplvd.o bvalue.o bvalus.o dpbfa.o dpbsl.o interv.o sgram.o sinerp.o spline_fit.o sslvrg.o stxwx.o
 	rm -f bsplvd.o bvalue.o bvalus.o dpbfa.o dpbsl.o interv.o sgram.o sinerp.o spline_fit.o sslvrg.o stxwx.o
 
-.PHONY : ldc sample clean boot test static install dmd
+test :  bin/largeQvalue
+	./test.sh
 
-static	: $(SOURCES_D) $(LIB_GSL) src/bootstrap.o src/libspline.a
-	ldc -ofbin/largeQvalue -release -enable-inlining -O -w -oq -d-version=Have_largeqvalue -Isrc/ $(SOURCES_D) src/bootstrap.o src/libspline.a $(LIB_GSL)
-	rm -f src/bootstrap.o largeQvalue.o
-	strip bin/largeQvalue
-
-gdc : $(SOURCES_D) src/bootstrap.o src/libspline.a
-	gdc -frelease -finline-functions -O3 -Werror -Wall -fversion=Have_largeQvalue $(SOURCES_D) src/bootstrap.o src/libspline.a -lblas -lgsl -lgslcblas -lcurl -o bin/largeQvalue
-	rm -f src/bootstrap.o largeQvalue.o
-	strip bin/largeQvalue
-
-dmd	: $(SOURCES_D) src/bootstrap.o src/libspline.a
-	dmd -release -inline -O -w -version=Have_largeqvalue $(SOURCES_D) src/bootstrap.o src/libspline.a -L-lgsl -L-lgslcblas -L-lblas -ofbin/largeQvalue
-	rm -f src/bootstrap.o largeQvalue.o
-	strip bin/largeQvalue
-
-install : bin/largeQvalue largeQvalue.1
-	cp -v $(shell pwd)/bin/largeQvalue /usr/local/bin/
-	cp -v $(shell pwd)/largeQvalue.1 /usr/local/man/man1/
-
-clean :
-	rm -f *.o bin/largeQvalue
-
-sample :
-	bin/largeQvalue --header --col 4 --out temp --param parameter_file data/vQTLresults.txt
-
-boot :
-	bin/largeQvalue --boot --header --col 4 --out temp --param parameter_file data/vQTLresults.txt
-
-test :
-	bin/largeQvalue --header --col 4 --out temp --param parameter_file data/vQTLresults.txt
-	diff temp data/sample_test | head
-	diff parameter_file data/sample_param | head
-	bin/largeQvalue --boot --header --col 4 --out temp --param parameter_file data/vQTLresults.txt
-	diff temp data/boot_test | head
-	diff parameter_file data/boot_param | head
-	bin/largeQvalue --fast 0.05 --out temp --col 10 data/nominal
-	diff data/nominal_results temp | head
-	rm temp parameter_file
+.PHONY : test
